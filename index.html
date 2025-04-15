@@ -1,69 +1,158 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Matrix Multiplier</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 2rem;
-        }
-        textarea, input {
-            width: 100%;
-            margin-bottom: 1rem;
-            font-family: monospace;
-        }
-        button {
-            padding: 10px;
-            margin-right: 10px;
-        }
-        pre {
-            background: #f3f3f3;
-            padding: 10px;
-            white-space: pre-wrap;
-        }
-    </style>
+  <title>Matrix Multiplier Comparison</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+    }
+    textarea, input, button, select {
+      width: 100%;
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      font-family: monospace;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .results {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .card {
+      flex: 1;
+      min-width: 300px;
+      background: #f3f3f3;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    label {
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-    <h1>Matrix Multiplication Comparison</h1>
+  <h1>Matrix Multiplication: Serial vs Parallel</h1>
 
-    <label>Matrix A (e.g. [[1,2],[3,4]]):</label>
-    <textarea id="matrixA" rows="4">[[1,2],[3,4]]</textarea>
+  <div class="controls">
+    <label for="matrixSize">Matrix Size: <span id="sizeLabel">3</span> × <span id="sizeLabel2">3</span></label>
+    <input type="range" id="matrixSize" min="2" max="5000" value="3" oninput="updateSizeLabel(this.value)">
+  </div>
 
-    <label>Matrix B (e.g. [[5,6],[7,8]]):</label>
-    <textarea id="matrixB" rows="4">[[5,6],[7,8]]</textarea>
+  <button onclick="generateMatrices()">Generate Random Matrices</button>
 
-    <label>Number of Threads (for Parallel):</label>
-    <input type="number" id="threads" value="2" min="1"/>
+  <label>Matrix A:</label>
+  <textarea id="matrixA" rows="6"></textarea>
 
-    <button onclick="multiply('serial')">Run Serial</button>
-    <button onclick="multiply('parallel')">Run Parallel</button>
+  <label>Matrix B:</label>
+  <textarea id="matrixB" rows="6"></textarea>
 
-    <h2>Result</h2>
-    <pre id="output"></pre>
+  <label>Number of Threads (for Parallel):</label>
+  <input type="number" id="threads" value="2" min="1"/>
 
-    <script>
-        async function multiply(mode) {
-            const matrixA = JSON.parse(document.getElementById('matrixA').value);
-            const matrixB = JSON.parse(document.getElementById('matrixB').value);
-            const threads = document.getElementById('threads').value;
+  <button onclick="compareMatrices()">Multiply & Compare</button>
 
-            const url = `http://127.0.0.1:5000/multiply-${mode}`;
-            const body = {
-                matrixA: matrixA,
-                matrixB: matrixB,
-                ...(mode === 'parallel' && { numThreads: threads })
-            };
+  <div class="results">
+    <div class="card">
+      <h2>Serial</h2>
+      <pre id="serialOutput">Waiting...</pre>
+    </div>
+    <div class="card">
+      <h2>Parallel</h2>
+      <pre id="parallelOutput">Waiting...</pre>
+    </div>
+    <div class="card">
+      <h2>Performance</h2>
+      <pre id="comparisonOutput">Waiting...</pre>
+    </div>
+  </div>
 
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
+  <script>
+    function updateSizeLabel(size) {
+      document.getElementById("sizeLabel").textContent = size;
+      document.getElementById("sizeLabel2").textContent = size;
+    }
 
-            const data = await res.json();
-            document.getElementById('output').textContent =
-                `Method: ${data.method}\nThreads: ${data.threads_used || 1}\nExecution Time: ${data.execution_time.toFixed(6)}s\n\nResult:\n${JSON.stringify(data.result, null, 2)}`;
-        }
-    </script>
+    function generateRandomMatrix(n) {
+      return Array.from({ length: n }, () =>
+        Array.from({ length: n }, () => Math.floor(Math.random() * 10))
+      );
+    }
+
+    function generateMatrices() {
+      const size = parseInt(document.getElementById("matrixSize").value);
+      const matA = generateRandomMatrix(size);
+      const matB = generateRandomMatrix(size);
+
+      const stringifyMatrix = mat =>
+        mat.map(row => row.join(" ")).join("\n");
+
+      document.getElementById("matrixA").value = stringifyMatrix(matA);
+      document.getElementById("matrixB").value = stringifyMatrix(matB);
+    }
+
+    function parseMatrixInput(text) {
+      return text.trim().split("\n").map(row =>
+        row.trim().split(/[\s,]+/).map(Number)
+      );
+    }
+
+    async function compareMatrices() {
+      const matrixA = parseMatrixInput(document.getElementById('matrixA').value);
+      const matrixB = parseMatrixInput(document.getElementById('matrixB').value);
+      const threads = parseInt(document.getElementById('threads').value);
+
+      document.getElementById("serialOutput").textContent = "Calculating...";
+      document.getElementById("parallelOutput").textContent = "Calculating...";
+      document.getElementById("comparisonOutput").textContent = "Calculating...";
+
+      try {
+        const [serialRes, parallelRes] = await Promise.all([
+          fetch('https://parallelprocessingwebapp-backend.onrender.com//multiply-serial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matrixA, matrixB })
+          }).then(res => res.json()),
+
+          fetch('https://parallelprocessingwebapp-backend.onrender.com//multiply-parallel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matrixA, matrixB, numThreads: threads })
+          }).then(res => res.json())
+        ]);
+
+        document.getElementById('serialOutput').textContent =
+          `Execution Time: ${serialRes.execution_time.toFixed(6)}s\n\nResult:\n${JSON.stringify(serialRes.result, null, 2)}`;
+
+        document.getElementById('parallelOutput').textContent =
+          `Execution Time: ${parallelRes.execution_time.toFixed(6)}s\nThreads: ${parallelRes.threads_used}\n\nResult:\n${JSON.stringify(parallelRes.result, null, 2)}`;
+
+        const speedup = serialRes.execution_time / parallelRes.execution_time;
+        const diff = Math.abs(serialRes.execution_time - parallelRes.execution_time);
+
+        document.getElementById('comparisonOutput').textContent =
+          `Speedup: ${speedup.toFixed(2)}x\n` +
+          `Time Difference: ${diff.toFixed(6)}s\n` +
+          `Result Match: ${JSON.stringify(serialRes.result) === JSON.stringify(parallelRes.result) ? "✅ Yes" : "❌ No"}`;
+
+      } catch (err) {
+        document.getElementById("comparisonOutput").textContent = "Error: " + err.message;
+      }
+    }
+
+    // Auto-generate default 3x3 matrices on load
+    window.onload = () => {
+      generateMatrices();
+    };
+  </script>
 </body>
 </html>
