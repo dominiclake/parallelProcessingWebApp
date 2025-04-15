@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Matrix Multiplier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+        textarea, input {
+            width: 100%;
+            margin-bottom: 1rem;
+            font-family: monospace;
+        }
+        button {
+            padding: 10px;
+            margin-right: 10px;
+        }
+        pre {
+            background: #f3f3f3;
+            padding: 10px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Matrix Multiplication Comparison</h1>
+
+    <label>Matrix A (e.g. [[1,2],[3,4]]):</label>
+    <textarea id="matrixA" rows="4">[[1,2],[3,4]]</textarea>
+
+    <label>Matrix B (e.g. [[5,6],[7,8]]):</label>
+    <textarea id="matrixB" rows="4">[[5,6],[7,8]]</textarea>
+
+    <label>Number of Threads (for Parallel):</label>
+    <input type="number" id="threads" value="2" min="1"/>
+
+    <button onclick="multiply('serial')">Run Serial</button>
+    <button onclick="multiply('parallel')">Run Parallel</button>
+
+    <h2>Result</h2>
+    <pre id="output"></pre>
+
+    <script>
+        async function multiply(mode) {
+            const matrixA = JSON.parse(document.getElementById('matrixA').value);
+            const matrixB = JSON.parse(document.getElementById('matrixB').value);
+            const threads = document.getElementById('threads').value;
+
+            const url = `http://127.0.0.1:5000/multiply-${mode}`;
+            const body = {
+                matrixA: matrixA,
+                matrixB: matrixB,
+                ...(mode === 'parallel' && { numThreads: threads })
+            };
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json();
+            document.getElementById('output').textContent =
+                `Method: ${data.method}\nThreads: ${data.threads_used || 1}\nExecution Time: ${data.execution_time.toFixed(6)}s\n\nResult:\n${JSON.stringify(data.result, null, 2)}`;
+        }
+    </script>
+</body>
+</html>
